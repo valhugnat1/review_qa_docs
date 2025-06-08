@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import Review from "../views/ReviewQa.vue";
 import Leaderboard from "../views/LeaderboardScore.vue";
+import CategoryStats from "../views/CategoryStats.vue";
 
 const routes = [
   {
@@ -12,6 +13,11 @@ const routes = [
     path: "/leaderboard",
     name: "LeaderboardScore",
     component: Leaderboard,
+  },
+  {
+    path: "/category-stats", // <-- Add the new route
+    name: "CategoryStats",
+    component: CategoryStats,
   },
 ];
 

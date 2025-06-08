@@ -1,12 +1,13 @@
 import json
 import os
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from datetime import date, datetime
+from collections import Counter
 
 # --- Pydantic Models for Data Validation ---
 
@@ -20,6 +21,12 @@ class ReviewPayload(BaseModel):
     timestamp: str
     # NEW: Added category to the review payload
     category: str
+
+# NEW: Pydantic model for category statistics
+class CategoryStat(BaseModel):
+    category: str
+    count: int
+
 
 # --- FastAPI App Initialization ---
 app = FastAPI()
@@ -131,6 +138,27 @@ async def get_reviews():
             return json.load(f)
         except json.JSONDecodeError:
             return []
+
+# --- NEW ENDPOINT ---
+@app.get("/api/reviews/category-stats", response_model=List[CategoryStat])
+async def get_category_stats():
+    """
+    Calculates and returns the number of reviews for each category.
+    """
+    reviews = await get_reviews()  # Reuse the existing function
+    if not reviews:
+        return []
+    
+    # Count occurrences of each category
+    category_counts = Counter(review['category'] for review in reviews if 'category' in review)
+    
+    # Format the data for the response
+    stats = [{"category": cat, "count": count} for cat, count in category_counts.items()]
+    
+    # Sort by count descending
+    stats.sort(key=lambda x: x['count'], reverse=True)
+    
+    return stats
 
 
 @app.get("/api/reviews/progress")

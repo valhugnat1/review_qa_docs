@@ -8,6 +8,7 @@
       <nav class="header-nav">
         <router-link to="/">Q&A Review</router-link>
         <router-link to="/leaderboard">Leaderboard</router-link>
+        <router-link to="/category-stats">Category Stats</router-link>
       </nav>
 
       <div class="auth-section">

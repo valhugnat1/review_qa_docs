@@ -11,6 +11,8 @@
       :selected-categories="selectedCategories"
       @add-category="addCategory"
       @remove-category="removeCategory"
+      @select-all="selectAllCategories"
+      @unselect-all="unselectAllCategories"
     />
 
     <ReviewCard
@@ -127,6 +129,15 @@ export default {
     removeCategory(index) {
       this.selectedCategories.splice(index, 1);
     },
+    // New method to handle 'select-all' event
+    selectAllCategories() {
+      // Assign a copy of all categories to selectedCategories
+      this.selectedCategories = [...this.categories];
+    },
+    // New method to handle 'unselect-all' event
+    unselectAllCategories() {
+      this.selectedCategories = [];
+    },
     getRandomPair() {
       if (this.qaPairs.length > 0) {
         const randomIndex = Math.floor(Math.random() * this.qaPairs.length);
@@ -135,6 +146,7 @@ export default {
       } else {
         this.currentPair = null;
         if (this.selectedCategories.length > 0) {
+          // This check is important to avoid fetching when unselecting all
           this.fetchData();
         }
       }
@@ -152,17 +164,13 @@ export default {
       };
       try {
         await axios.post("/api/submit-review", completeReviewData);
-
-        // SUCCESS ALERT REMOVED
-
         this.dailyProgress++;
         if (this.dailyProgress === this.dailyObjective) {
           this.triggerVictoryAnimation();
         }
-        this.getRandomPair(); // This fetches the next card and solves the "didn't change" issue
+        this.getRandomPair();
       } catch (error) {
         console.error("Error submitting review:", error);
-        // ERROR ALERT REMAINS
         alert(
           "Failed to submit review. Check the console and ensure the backend is running."
         );

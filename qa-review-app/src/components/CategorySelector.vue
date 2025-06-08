@@ -1,6 +1,24 @@
 <template>
   <div class="category-selector-card">
-    <h3 class="panel-title">Select Categories to Review</h3>
+    <div class="panel-header">
+      <h3 class="panel-title">Select Categories to Review</h3>
+      <div class="bulk-actions">
+        <button
+          @click="selectAll"
+          :disabled="availableCategories.length === 0"
+          class="bulk-action-btn"
+        >
+          Select All
+        </button>
+        <button
+          @click="unselectAll"
+          :disabled="selectedCategories.length === 0"
+          class="bulk-action-btn"
+        >
+          Unselect All
+        </button>
+      </div>
+    </div>
     <div class="selector-content">
       <select
         @change="onAddCategory($event.target.value)"
@@ -56,6 +74,7 @@ export default {
   },
   computed: {
     availableCategories() {
+      // Returns categories that are not yet selected
       return this.categories.filter(
         (c) => !this.selectedCategories.includes(c)
       );
@@ -64,8 +83,14 @@ export default {
   methods: {
     onAddCategory(category) {
       this.$emit("add-category", category);
-      // Reset dropdown
+      // Reset dropdown after selection
       this.$el.querySelector(".category-dropdown").value = "";
+    },
+    selectAll() {
+      this.$emit("select-all");
+    },
+    unselectAll() {
+      this.$emit("unselect-all");
     },
   },
 };
@@ -82,11 +107,40 @@ export default {
   width: 100%;
   margin-bottom: 2rem;
 }
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
 .panel-title {
   font-size: 1.3rem;
-  text-align: center;
-  margin-bottom: 1.5rem;
   color: #444;
+  margin: 0;
+}
+.bulk-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+.bulk-action-btn {
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #555;
+  transition: background-color 0.2s, color 0.2s;
+}
+.bulk-action-btn:hover:not(:disabled) {
+  background-color: #e0e0e0;
+}
+.bulk-action-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 .selector-content {
   display: flex;
