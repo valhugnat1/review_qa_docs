@@ -3,27 +3,23 @@ import os
 from typing import List, Optional
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from datetime import date, datetime
 
-# --- Updated Pydantic Model for Data Validation ---
-# We now match the detailed structure from the Vue app
-class Review(BaseModel):
-    user: str
-    original_question: Optional[str] = None
-    edited_question: str = Field(..., alias='question') # The 'alias' is not strictly needed if the frontend sends 'edited_question', but this shows how you can map fields. Let's stick to a simpler model matching the frontend exactly.
+# --- Pydantic Models for Data Validation ---
 
-# Let's redefine the model to be simpler and match the final frontend code.
 class ReviewPayload(BaseModel):
     user: str
-    question: str # The final, potentially edited question
-    answer: str # The final, potentially edited answer
+    question: str
+    answer: str
     question_rating: int
     answer_rating: int
     comment: Optional[str] = None
     timestamp: str
+    # NEW: Added category to the review payload
+    category: str
 
 # --- FastAPI App Initialization ---
 app = FastAPI()
@@ -38,16 +34,72 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-REVIEWS_FILE = "data/reviews.json"
+# --- Constants ---
+DATA_DIR = "data"
+REVIEWS_FILE = os.path.join(DATA_DIR, "reviews.json")
+QA_PREFIX = "qa_"
+QA_SUFFIX = ".json"
+
+
+# --- Helper Function ---
+def get_categories_from_files():
+    """Scans the data directory for qa_{category}.json files."""
+    categories = []
+    if not os.path.exists(DATA_DIR):
+        return []
+    for filename in os.listdir(DATA_DIR):
+        if filename.startswith(QA_PREFIX) and filename.endswith(QA_SUFFIX):
+            # Extracts 'category' from 'qa_category.json'
+            category = filename[len(QA_PREFIX):-len(QA_SUFFIX)]
+            categories.append(category)
+    return categories
 
 # --- API Endpoints ---
 
-@app.post("/api/submit-review")
-async def submit_review(review: ReviewPayload): # Use the new model
+@app.get("/api/categories")
+async def get_available_categories():
     """
-    Receives a new review, reads existing reviews, appends, and saves.
+    Returns a list of available question categories based on filenames.
+    """
+    return get_categories_from_files()
+
+
+@app.get("/api/questions")
+async def get_questions_by_category(categories: Optional[List[str]] = Query(None)):
+    """
+    Fetches questions from the qa_{category}.json files corresponding to the
+    provided list of categories.
+    """
+    all_qa_pairs = []
+    if not categories:
+        return {"qa_pairs": []}
+
+    for category in categories:
+        file_path = os.path.join(DATA_DIR, f"{QA_PREFIX}{category}{QA_SUFFIX}")
+        if os.path.exists(file_path):
+            with open(file_path, "r") as f:
+                try:
+                    data = json.load(f)
+                    # Add the category to each question pair for frontend reference
+                    for pair in data.get("qa_pairs", []):
+                        pair["category"] = category
+                        all_qa_pairs.append(pair)
+                except json.JSONDecodeError:
+                    # Ignore malformed JSON files
+                    continue
+    return {"qa_pairs": all_qa_pairs}
+
+
+@app.post("/api/submit-review")
+async def submit_review(review: ReviewPayload):
+    """
+    Receives a new review, including the category, and saves it.
     """
     reviews = []
+    
+    # Ensure the data directory exists
+    os.makedirs(DATA_DIR, exist_ok=True)
+
     if os.path.exists(REVIEWS_FILE):
         with open(REVIEWS_FILE, "r") as f:
             try:
@@ -66,7 +118,7 @@ async def submit_review(review: ReviewPayload): # Use the new model
     return {"message": "Review saved successfully"}
 
 
-@app.get("/api/reviews", response_model=List[ReviewPayload]) # Use the new model
+@app.get("/api/reviews", response_model=List[ReviewPayload])
 async def get_reviews():
     """
     Reads and returns all reviews for the leaderboard.
@@ -79,7 +131,6 @@ async def get_reviews():
             return json.load(f)
         except json.JSONDecodeError:
             return []
-        
 
 
 @app.get("/api/reviews/progress")
@@ -100,20 +151,37 @@ async def get_user_progress(user: str):
     today = date.today()
     daily_count = 0
     for review in reviews:
-        # Check if the review belongs to the user and was created today
         if review.get("user") == user:
             try:
-                # Timestamps are in ISO format e.g., "2025-06-08T10:45:35.123Z"
                 review_date = datetime.fromisoformat(review["timestamp"].replace("Z", "+00:00")).date()
                 if review_date == today:
                     daily_count += 1
             except (ValueError, KeyError):
-                # Ignore reviews with malformed timestamps or missing keys
                 continue
                 
     return {"daily_count": daily_count}
 
 
-# This part is just to run the server directly with `python main.py` if you want
 if __name__ == "__main__":
+    # Create a dummy data directory and a couple of qa files for testing
+    print("Creating dummy data for testing...")
+    os.makedirs(DATA_DIR, exist_ok=True)
+    python_qa = {
+        "qa_pairs": [
+            {"question": "What is a decorator in Python?", "answer": "A decorator is a design pattern in Python that allows a user to add new functionality to an existing object without modifying its structure."},
+            {"question": "Explain GIL in Python.", "answer": "The Global Interpreter Lock (GIL) is a mutex that protects access to Python objects, preventing multiple native threads from executing Python bytecodes at once."}
+        ]
+    }
+    sql_qa = {
+        "qa_pairs": [
+            {"question": "What is the difference between `DELETE` and `TRUNCATE` in SQL?", "answer": "`DELETE` is a DML command that removes rows one by one and records an entry in the transaction log for each deleted row. `TRUNCATE` is a DDL command that deallocates the data pages and records only the page deallocations in the transaction log."},
+            {"question": "What are SQL indexes?", "answer": "Indexes are special lookup tables that the database search engine can use to speed up data retrieval."}
+        ]
+    }
+    with open(os.path.join(DATA_DIR, "qa_python.json"), "w") as f:
+        json.dump(python_qa, f, indent=2)
+    with open(os.path.join(DATA_DIR, "qa_sql.json"), "w") as f:
+        json.dump(sql_qa, f, indent=2)
+    print("Dummy files `qa_python.json` and `qa_sql.json` created.")
+    
     uvicorn.run(app, host="0.0.0.0", port=8000)

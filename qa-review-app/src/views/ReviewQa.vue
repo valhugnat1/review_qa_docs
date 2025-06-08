@@ -15,7 +15,48 @@
       </div>
     </div>
 
-    <div class="review-card" v-if="currentPair">
+    <div class="category-selector-card">
+      <h3 class="panel-title">Select Categories to Review</h3>
+      <div class="selector-content">
+        <select
+          @change="addCategory($event.target.value)"
+          class="category-dropdown"
+          :disabled="availableCategories.length === 0"
+        >
+          <option disabled selected value="">
+            {{
+              availableCategories.length > 0
+                ? "-- Add a category --"
+                : "-- All categories selected --"
+            }}
+          </option>
+          <option v-for="cat in availableCategories" :key="cat" :value="cat">
+            {{ cat }}
+          </option>
+        </select>
+        <div class="selected-tags-container">
+          <span
+            v-for="(tag, index) in selectedCategories"
+            :key="tag"
+            class="category-tag"
+          >
+            {{ tag }}
+            <button
+              @click="removeCategory(index)"
+              class="remove-tag-btn"
+              title="Remove category"
+            >
+              ×
+            </button>
+          </span>
+          <span v-if="!selectedCategories.length" class="no-tags-placeholder">
+            Select one or more categories to begin.
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="currentPair" class="review-card">
       <div class="qa-content">
         <div class="qa-section">
           <h2 class="question-title">Question</h2>
@@ -75,9 +116,8 @@
                   :key="n"
                   @click="questionRating = n"
                   :class="{ filled: n <= questionRating }"
+                  >★</span
                 >
-                  ★
-                </span>
               </div>
             </div>
             <div class="rating-group">
@@ -88,9 +128,8 @@
                   :key="n"
                   @click="answerRating = n"
                   :class="{ filled: n <= answerRating }"
+                  >★</span
                 >
-                  ★
-                </span>
               </div>
             </div>
           </div>
@@ -112,7 +151,14 @@
     </div>
 
     <div v-else class="loading-card">
-      <p>Loading Q&A pair...</p>
+      <p v-if="isLoading">Loading Q&A pairs...</p>
+      <p v-else-if="!selectedCategories.length">
+        Please select one or more categories to start reviewing.
+      </p>
+      <p v-else>
+        No more questions available for the selected categories. Try adding more
+        categories!
+      </p>
     </div>
   </div>
 </template>
@@ -121,17 +167,21 @@
 import axios from "axios";
 import { marked } from "marked";
 import hljs from "highlight.js";
-// NEW: Import the confetti library
 import confetti from "canvas-confetti";
 
 export default {
   name: "ReviewQa",
-  components: {},
   props: {
     user: String,
   },
   data() {
     return {
+      // NEW: State for category management
+      categories: [],
+      selectedCategories: [],
+      isLoading: false,
+
+      // Existing state
       qaPairs: [],
       currentPair: null,
       editablePair: { question: "", answer: "" },
@@ -139,20 +189,34 @@ export default {
       answerRating: 3,
       comment: "",
       mode: "view", // 'view', 'edit', 'rate'
-      // NEW: Data properties for progress tracking
       dailyProgress: 0,
       dailyObjective: 5,
     };
   },
   created() {
     this.configureMarked();
-    this.fetchData();
-    // NEW: Fetch user progress when the component is created
+    // Fetch categories when the component is created
+    this.fetchCategories();
     if (this.user) {
       this.fetchUserProgress();
     }
   },
+  watch: {
+    // NEW: Watch for changes in selected categories to fetch new data
+    selectedCategories: {
+      handler() {
+        this.fetchData();
+      },
+      deep: true, // Necessary because we are watching an array
+    },
+  },
   computed: {
+    // NEW: Computed property to find categories that are not yet selected
+    availableCategories() {
+      return this.categories.filter(
+        (c) => !this.selectedCategories.includes(c)
+      );
+    },
     formattedQuestion() {
       return this.currentPair?.question
         ? marked(this.currentPair.question)
@@ -161,15 +225,12 @@ export default {
     formattedAnswer() {
       return this.currentPair?.answer ? marked(this.currentPair.answer) : "";
     },
-    // NEW: Computed property to calculate the progress bar's width
     progressBarWidth() {
       if (this.dailyObjective === 0) return 0;
-      // Cap the width at 100%
       return Math.min((this.dailyProgress / this.dailyObjective) * 100, 100);
     },
   },
   methods: {
-    // ... (keep configureMarked, fetchData, getRandomPair, setMode, resetState, submitEditedContent, passQuestion)
     configureMarked() {
       marked.setOptions({
         highlight: function (code, lang) {
@@ -181,35 +242,81 @@ export default {
         breaks: true,
       });
     },
+
+    // MODIFIED: Fetches data based on the selected categories from the new API endpoint
     async fetchData() {
+      if (this.selectedCategories.length === 0) {
+        this.qaPairs = [];
+        this.currentPair = null;
+        return;
+      }
+      this.isLoading = true;
       try {
-        const response = await axios.get("/qa_data.json");
+        const categoryQuery = this.selectedCategories
+          .map((cat) => `categories=${encodeURIComponent(cat)}`)
+          .join("&");
+        const response = await axios.get(`/api/questions?${categoryQuery}`);
         this.qaPairs = response.data.qa_pairs.filter(
           (p) => p.question && p.answer
         );
         this.getRandomPair();
       } catch (error) {
         console.error("Error fetching data:", error);
+        this.qaPairs = [];
+        this.currentPair = null;
+      } finally {
+        this.isLoading = false;
       }
     },
+
+    // NEW: Method to fetch the list of available categories from the backend
+    async fetchCategories() {
+      try {
+        const response = await axios.get("/api/categories");
+        this.categories = response.data.sort(); // Sort categories alphabetically
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    },
+
+    // NEW: Method to add a category to the selection list
+    addCategory(category) {
+      if (category && !this.selectedCategories.includes(category)) {
+        this.selectedCategories.push(category);
+      }
+      // Reset dropdown
+      event.target.value = "";
+    },
+
+    // NEW: Method to remove a category from the selection list
+    removeCategory(index) {
+      this.selectedCategories.splice(index, 1);
+    },
+
     getRandomPair() {
       if (this.qaPairs.length > 0) {
         const randomIndex = Math.floor(Math.random() * this.qaPairs.length);
         this.currentPair = { ...this.qaPairs[randomIndex] };
+        // Remove the selected pair to avoid repetition until the list is exhausted
+        this.qaPairs.splice(randomIndex, 1);
       } else {
-        this.currentPair = {
-          question: "No more questions to review!",
-          answer: "Please check back later.",
-        };
+        this.currentPair = null;
       }
       this.resetState();
     },
+
+    passQuestion() {
+      // This will now get a new random question from the remaining pool
+      this.getRandomPair();
+    },
+
     setMode(newMode) {
       if (newMode === "edit") {
         this.editablePair = { ...this.currentPair };
       }
       this.mode = newMode;
     },
+
     resetState() {
       this.mode = "view";
       this.questionRating = 3;
@@ -217,16 +324,13 @@ export default {
       this.comment = "";
       this.editablePair = { question: "", answer: "" };
     },
+
     submitEditedContent() {
       this.currentPair.question = this.editablePair.question;
       this.currentPair.answer = this.editablePair.answer;
       this.submitReview();
     },
-    passQuestion() {
-      this.getRandomPair();
-    },
 
-    // NEW: Method to fetch the user's daily progress
     async fetchUserProgress() {
       try {
         const response = await axios.get(
@@ -238,9 +342,7 @@ export default {
       }
     },
 
-    // NEW: Method to trigger the winning animation
     triggerVictoryAnimation() {
-      // Use canvas-confetti for a nice effect
       confetti({
         particleCount: 150,
         spread: 90,
@@ -249,6 +351,7 @@ export default {
       });
     },
 
+    // MODIFIED: Submits review with the question's category
     async submitReview() {
       if (!this.user) {
         alert("Please log in to submit a review.");
@@ -263,13 +366,14 @@ export default {
         answer_rating: this.answerRating,
         comment: this.comment,
         timestamp: new Date().toISOString(),
+        // NEW: Include the category of the question being reviewed
+        category: this.currentPair.category,
       };
 
       try {
         await axios.post("/api/submit-review", reviewData);
         alert("Review submitted successfully!");
 
-        // NEW: Update progress and check for objective completion
         this.dailyProgress++;
         if (this.dailyProgress === this.dailyObjective) {
           this.triggerVictoryAnimation();
@@ -288,10 +392,9 @@ export default {
 </script>
 
 <style scoped>
-/* --- STYLES --- */
+/* --- Main Styles --- */
 .page-container {
   display: flex;
-  /* NEW: Allow vertical stacking */
   flex-direction: column;
   align-items: center;
   padding: 2rem;
@@ -301,7 +404,7 @@ export default {
     "Helvetica Neue", Arial, sans-serif;
 }
 
-/* NEW: Styles for the Progress Bar */
+/* --- Progress Bar --- */
 .progress-container {
   background-color: white;
   border-radius: 12px;
@@ -311,25 +414,21 @@ export default {
   width: 100%;
   margin-bottom: 2rem;
 }
-
 .progress-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.75rem;
 }
-
 .progress-title {
   font-weight: 600;
   color: #333;
 }
-
 .progress-count {
   font-weight: bold;
   color: #4a90e2;
   font-size: 1.1rem;
 }
-
 .progress-bar {
   width: 100%;
   height: 12px;
@@ -337,7 +436,6 @@ export default {
   border-radius: 6px;
   overflow: hidden;
 }
-
 .progress-bar-fill {
   height: 100%;
   background-image: linear-gradient(45deg, #4a90e2, #55d7ff);
@@ -345,6 +443,88 @@ export default {
   transition: width 0.5s ease-in-out;
 }
 
+/* --- NEW: Category Selector --- */
+.category-selector-card {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  padding: 1.5rem 2.5rem;
+  max-width: 800px;
+  width: 100%;
+  margin-bottom: 2rem;
+}
+.selector-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.category-dropdown {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  background-color: #fff;
+  cursor: pointer;
+}
+.category-dropdown:disabled {
+  background-color: #f8f8f8;
+  cursor: not-allowed;
+}
+.selected-tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  min-height: 40px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  align-items: center;
+}
+.no-tags-placeholder {
+  color: #999;
+  padding-left: 0.5rem;
+  font-style: italic;
+}
+.category-tag {
+  display: inline-flex;
+  align-items: center;
+  background-color: #4a90e2;
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 16px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  animation: fadeIn 0.3s ease-in-out;
+}
+.remove-tag-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-left: 0.5rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.remove-tag-btn:hover {
+  opacity: 1;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* --- Review Card --- */
 .review-card {
   background-color: white;
   border-radius: 12px;
@@ -353,11 +533,9 @@ export default {
   max-width: 800px;
   width: 100%;
 }
-/* ... all your other existing styles ... */
 .qa-section {
   margin-bottom: 1.5rem;
 }
-
 .question-title,
 .answer-title {
   font-size: 1.5rem;
@@ -366,7 +544,6 @@ export default {
   border-bottom: 2px solid #eee;
   padding-bottom: 0.5rem;
 }
-
 .content-display {
   line-height: 1.7;
   color: #333;
@@ -375,7 +552,7 @@ export default {
   margin-bottom: 1em;
 }
 .content-display :deep(pre) {
-  background-color: #282c34; /* Atom One Dark background */
+  background-color: #282c34;
   color: #abb2bf;
   border-radius: 8px;
   padding: 1rem;
@@ -386,26 +563,24 @@ export default {
   font-size: 0.95em;
 }
 
+/* --- Panels (Actions, Edit, Rate) --- */
 .actions-panel {
   margin-top: 2rem;
   padding-top: 1.5rem;
   border-top: 1px solid #e9ecef;
 }
-
 .panel-title {
   font-size: 1.3rem;
   text-align: center;
   margin-bottom: 1.5rem;
   color: #444;
 }
-
 .text-field-label {
   display: block;
   font-weight: 500;
   color: #555;
   margin-bottom: 0.5rem;
 }
-
 .text-field,
 .comment-field {
   width: 100%;
@@ -425,7 +600,6 @@ export default {
 .answer-field {
   min-height: 200px;
 }
-
 .ratings-wrapper {
   display: flex;
   justify-content: space-around;
@@ -439,7 +613,6 @@ export default {
   margin-bottom: 0.75rem;
   display: block;
 }
-
 .star-rating {
   cursor: pointer;
   font-size: 2.2rem;
@@ -452,19 +625,16 @@ export default {
 .star-rating span.filled {
   color: #f59e0b;
 }
-
 .star-rating:hover span {
   color: #facc15;
 }
 .star-rating span:hover ~ span {
   color: #d1d5db;
 }
-
 .comment-field {
   min-height: 80px;
   margin-bottom: 1.5rem;
 }
-
 .view-actions,
 .panel-actions {
   display: flex;
@@ -483,7 +653,6 @@ export default {
   cursor: pointer;
   transition: all 0.2s;
 }
-
 .submit-button,
 .action-button {
   color: white;
@@ -514,5 +683,18 @@ export default {
 }
 .cancel-button:hover {
   background-color: #e9e9e9;
+}
+
+/* --- Loading / Placeholder Card --- */
+.loading-card {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  padding: 4rem;
+  text-align: center;
+  color: #666;
+  max-width: 800px;
+  width: 100%;
+  font-size: 1.1rem;
 }
 </style>
