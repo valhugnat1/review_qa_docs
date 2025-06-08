@@ -1,13 +1,20 @@
 import json
 import os
-from typing import List, Optional, Dict
+from typing import List, Optional
+from datetime import date, datetime
+from collections import Counter
 
 import uvicorn
+import boto3
+from botocore.client import Config
+from botocore.exceptions import NoCredentialsError, ClientError
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from datetime import date, datetime
-from collections import Counter
+from dotenv import load_dotenv # <-- 1. IMPORT THE LIBRARY
+
+# --- Load Environment Variables from .env file ---
+load_dotenv() # <-- 2. LOAD THE VARIABLES
 
 # --- Pydantic Models for Data Validation ---
 
@@ -19,17 +26,75 @@ class ReviewPayload(BaseModel):
     answer_rating: int
     comment: Optional[str] = None
     timestamp: str
-    # NEW: Added category to the review payload
     category: str
 
-# NEW: Pydantic model for category statistics
 class CategoryStat(BaseModel):
     category: str
     count: int
 
+# --- Scaleway S3 Client Setup ---
+class S3Storage:
+    def __init__(self):
+        try:
+            self.bucket_name = os.environ['SCW_BUCKET_NAME']
+            self.client = boto3.client(
+                's3',
+                endpoint_url=f"https://{os.environ['SCW_ENDPOINT_URL']}",
+                aws_access_key_id=os.environ['SCW_ACCESS_KEY'],
+                aws_secret_access_key=os.environ['SCW_SECRET_KEY'],
+                region_name=os.environ['SCW_REGION'],
+                config=Config(signature_version='s3v4')
+            )
+        except KeyError as e:
+            raise RuntimeError(f"Environment variable {e} not set. Please create a .env file and fill it out.") from e
+
+    def get_json_object(self, key: str) -> Optional[dict]:
+        """Fetches and parses a JSON object from the S3 bucket."""
+        try:
+            response = self.client.get_object(Bucket=self.bucket_name, Key=key)
+            content = response['Body'].read().decode('utf-8')
+            return json.loads(content)
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'NoSuchKey':
+                return None
+            raise HTTPException(status_code=500, detail=f"S3 ClientError getting object: {e}")
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=500, detail=f"Failed to decode JSON from {key}")
+
+    def put_json_object(self, key: str, data: dict):
+        """Uploads a dictionary as a JSON object to the S3 bucket."""
+        try:
+            self.client.put_object(
+                Bucket=self.bucket_name,
+                Key=key,
+                Body=json.dumps(data, indent=2),
+                ContentType='application/json'
+            )
+        except NoCredentialsError:
+            raise HTTPException(status_code=401, detail="S3 credentials not available.")
+        except ClientError as e:
+            raise HTTPException(status_code=500, detail=f"S3 ClientError putting object: {e}")
+
+    def list_objects(self, prefix: str) -> List[str]:
+        """
+        Lists object keys in the bucket with a given prefix.
+        Handles 'NoSuchKey' error by returning an empty list.
+        """
+        try:
+            response = self.client.list_objects_v2(Bucket=self.bucket_name, Prefix=prefix)
+            return [item['Key'] for item in response.get('Contents', [])]
+        except ClientError as e:
+            # If the error is NoSuchKey, it means no objects matched the prefix.
+            # Treat this as a valid case and return an empty list.
+            if e.response['Error']['Code'] == 'NoSuchKey':
+                return []
+            # For any other client error, raise it as it might be a real issue.
+            raise HTTPException(status_code=500, detail=f"S3 ClientError listing objects: {e}")
 
 # --- FastAPI App Initialization ---
+
 app = FastAPI()
+storage = S3Storage()
 
 # --- CORS Middleware ---
 origins = ["http://localhost:8080"]
@@ -42,85 +107,57 @@ app.add_middleware(
 )
 
 # --- Constants ---
-DATA_DIR = "data"
-REVIEWS_FILE = os.path.join(DATA_DIR, "reviews.json")
+REVIEWS_FILE_KEY = "reviews.json"
 QA_PREFIX = "qa_"
 QA_SUFFIX = ".json"
 
 
-# --- Helper Function ---
-def get_categories_from_files():
-    """Scans the data directory for qa_{category}.json files."""
-    categories = []
-    if not os.path.exists(DATA_DIR):
-        return []
-    for filename in os.listdir(DATA_DIR):
-        if filename.startswith(QA_PREFIX) and filename.endswith(QA_SUFFIX):
-            # Extracts 'category' from 'qa_category.json'
-            category = filename[len(QA_PREFIX):-len(QA_SUFFIX)]
-            categories.append(category)
-    return categories
-
-# --- API Endpoints ---
+# --- API Endpoints (No changes needed below this line) ---
 
 @app.get("/api/categories")
 async def get_available_categories():
     """
-    Returns a list of available question categories based on filenames.
+    Returns a list of available question categories based on object keys.
     """
-    return get_categories_from_files()
-
+    object_keys = storage.list_objects(prefix=QA_PREFIX)
+    categories = [
+        key[len(QA_PREFIX):-len(QA_SUFFIX)]
+        for key in object_keys
+        if key.endswith(QA_SUFFIX)
+    ]
+    return categories
 
 @app.get("/api/questions")
 async def get_questions_by_category(categories: Optional[List[str]] = Query(None)):
     """
-    Fetches questions from the qa_{category}.json files corresponding to the
+    Fetches questions from the qa_{category}.json objects corresponding to the
     provided list of categories.
     """
-    all_qa_pairs = []
     if not categories:
         return {"qa_pairs": []}
 
+    all_qa_pairs = []
     for category in categories:
-        file_path = os.path.join(DATA_DIR, f"{QA_PREFIX}{category}{QA_SUFFIX}")
-        if os.path.exists(file_path):
-            with open(file_path, "r") as f:
-                try:
-                    data = json.load(f)
-                    # Add the category to each question pair for frontend reference
-                    for pair in data.get("qa_pairs", []):
-                        pair["category"] = category
-                        all_qa_pairs.append(pair)
-                except json.JSONDecodeError:
-                    # Ignore malformed JSON files
-                    continue
+        file_key = f"{QA_PREFIX}{category}{QA_SUFFIX}"
+        data = storage.get_json_object(file_key)
+        if data:
+            for pair in data.get("qa_pairs", []):
+                pair["category"] = category
+                all_qa_pairs.append(pair)
+
     return {"qa_pairs": all_qa_pairs}
 
 
 @app.post("/api/submit-review")
 async def submit_review(review: ReviewPayload):
     """
-    Receives a new review, including the category, and saves it.
+    Receives a new review, including the category, and saves it to object storage.
     """
-    reviews = []
-    
-    # Ensure the data directory exists
-    os.makedirs(DATA_DIR, exist_ok=True)
-
-    if os.path.exists(REVIEWS_FILE):
-        with open(REVIEWS_FILE, "r") as f:
-            try:
-                reviews = json.load(f)
-            except json.JSONDecodeError:
-                pass
+    reviews_data = storage.get_json_object(REVIEWS_FILE_KEY)
+    reviews = reviews_data if isinstance(reviews_data, list) else []
 
     reviews.append(review.dict())
-
-    try:
-        with open(REVIEWS_FILE, "w") as f:
-            json.dump(reviews, f, indent=2)
-    except IOError as e:
-        raise HTTPException(status_code=500, detail="Error saving the review.")
+    storage.put_json_object(REVIEWS_FILE_KEY, reviews)
 
     return {"message": "Review saved successfully"}
 
@@ -128,88 +165,46 @@ async def submit_review(review: ReviewPayload):
 @app.get("/api/reviews", response_model=List[ReviewPayload])
 async def get_reviews():
     """
-    Reads and returns all reviews for the leaderboard.
+    Reads and returns all reviews for the leaderboard from object storage.
     """
-    if not os.path.exists(REVIEWS_FILE):
-        return []
-    
-    with open(REVIEWS_FILE, "r") as f:
-        try:
-            return json.load(f)
-        except json.JSONDecodeError:
-            return []
+    reviews = storage.get_json_object(REVIEWS_FILE_KEY)
+    return reviews if isinstance(reviews, list) else []
 
-# --- NEW ENDPOINT ---
+
 @app.get("/api/reviews/category-stats", response_model=List[CategoryStat])
 async def get_category_stats():
     """
     Calculates and returns the number of reviews for each category.
     """
-    reviews = await get_reviews()  # Reuse the existing function
+    reviews = await get_reviews()
     if not reviews:
         return []
-    
-    # Count occurrences of each category
-    category_counts = Counter(review['category'] for review in reviews if 'category' in review)
-    
-    # Format the data for the response
+
+    category_counts = Counter(r['category'] for r in reviews if 'category' in r)
     stats = [{"category": cat, "count": count} for cat, count in category_counts.items()]
-    
-    # Sort by count descending
     stats.sort(key=lambda x: x['count'], reverse=True)
-    
     return stats
 
 
 @app.get("/api/reviews/progress")
 async def get_user_progress(user: str):
     """
+
     Calculates and returns the number of reviews submitted by a user for the current day.
     """
-    if not os.path.exists(REVIEWS_FILE):
+    reviews = await get_reviews()
+    if not reviews:
         return {"daily_count": 0}
-
-    reviews = []
-    with open(REVIEWS_FILE, "r") as f:
-        try:
-            reviews = json.load(f)
-        except json.JSONDecodeError:
-            return {"daily_count": 0}
 
     today = date.today()
     daily_count = 0
-    for review in reviews:
-        if review.get("user") == user:
+    for review_data in reviews:
+        if review_data.get("user") == user:
             try:
-                review_date = datetime.fromisoformat(review["timestamp"].replace("Z", "+00:00")).date()
+                review_date = datetime.fromisoformat(review_data["timestamp"].replace("Z", "+00:00")).date()
                 if review_date == today:
                     daily_count += 1
             except (ValueError, KeyError):
                 continue
-                
-    return {"daily_count": daily_count}
-
-
-if __name__ == "__main__":
-    # Create a dummy data directory and a couple of qa files for testing
-    print("Creating dummy data for testing...")
-    os.makedirs(DATA_DIR, exist_ok=True)
-    python_qa = {
-        "qa_pairs": [
-            {"question": "What is a decorator in Python?", "answer": "A decorator is a design pattern in Python that allows a user to add new functionality to an existing object without modifying its structure."},
-            {"question": "Explain GIL in Python.", "answer": "The Global Interpreter Lock (GIL) is a mutex that protects access to Python objects, preventing multiple native threads from executing Python bytecodes at once."}
-        ]
-    }
-    sql_qa = {
-        "qa_pairs": [
-            {"question": "What is the difference between `DELETE` and `TRUNCATE` in SQL?", "answer": "`DELETE` is a DML command that removes rows one by one and records an entry in the transaction log for each deleted row. `TRUNCATE` is a DDL command that deallocates the data pages and records only the page deallocations in the transaction log."},
-            {"question": "What are SQL indexes?", "answer": "Indexes are special lookup tables that the database search engine can use to speed up data retrieval."}
-        ]
-    }
-    with open(os.path.join(DATA_DIR, "qa_python.json"), "w") as f:
-        json.dump(python_qa, f, indent=2)
-    with open(os.path.join(DATA_DIR, "qa_sql.json"), "w") as f:
-        json.dump(sql_qa, f, indent=2)
-    print("Dummy files `qa_python.json` and `qa_sql.json` created.")
     
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    return {"daily_count": daily_count}
