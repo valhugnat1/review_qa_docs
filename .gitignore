@@ -1,0 +1,6 @@
+docs-content/
+__pycache__/
+ai-data/
+.DS_store
+.env
+data

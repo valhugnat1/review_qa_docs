@@ -1,0 +1,400 @@
+{
+  "qa_pairs": [
+    {
+      "question": "What are Scaleway Generative APIs?",
+      "answer": "Scaleway's Generative APIs provide access to pre-configured, serverless endpoints of the most popular AI models. These are hosted in European data centers and are priced per 1 million tokens used. They allow you to integrate advanced AI capabilities into your applications without managing the underlying infrastructure."
+    },
+    {
+      "question": "How do I get started with Generative APIs?",
+      "answer": "You can start by exploring the Generative APIs Playground in the Scaleway console to experiment with different models. For integrating into your applications, you should follow the Quickstart guide, which involves installing the OpenAI Python SDK, configuring your API key and the service URL, and then making your first API request."
+    },
+    {
+      "question": "I'm new to this. Can you show me a very basic Python script to make my first API request?",
+      "answer": "Certainly. Here is a simple Python script to generate a description of a futuristic city. Make sure to replace `<SCW_API_KEY>` with your actual Scaleway secret key.\n\n```python\nfrom openai import OpenAI\n\n# Initialize the client with your base URL and API key\nclient = OpenAI(\n    base_url=\"[https://api.scaleway.ai/v1](https://api.scaleway.ai/v1)\",\n    api_key=\"<SCW_API_KEY>\"\n)\n\n# Create a chat completion for Llama 3.1 8b instruct\ncompletion = client.chat.completions.create(\n    model=\"llama-3.1-8b-instruct\",\n    messages=[{\"role\": \"user\", \"content\": \"Describe a futuristic city with advanced technology and green energy solutions.\"}],\n    temperature=0.7,\n    max_tokens=100\n)\n\n# Output the result\nprint(completion.choices[0].message.content)\n```"
+    },
+    {
+      "question": "What is the service URL for Scaleway's Generative APIs?",
+      "answer": "The base service URL for Scaleway's Generative APIs is `https://api.scaleway.ai/v1`."
+    },
+    {
+      "question": "How does the free tier for Generative APIs work?",
+      "answer": "The free tier allows you to process up to 1,000,000 tokens without any cost. This usage is calculated by summing all input and output tokens consumed across all models. After you exceed this limit, you will be charged per million tokens processed, with the minimum billing unit being 1 million tokens."
+    },
+    {
+      "question": "What is a 'token' and how is it counted?",
+      "answer": "A token is the basic unit of content processed by a model. For text, on average, 1 token is about 4 characters or 0.75 words. For images, a token corresponds to a square of pixels (e.g., for the `mistral-small-3.1-24b-instruct-2503` model, one token is 28x28 pixels). The exact count depends on the tokenizer used by each specific model."
+    },
+    {
+      "question": "What's the difference between Generative APIs and Managed Inference?",
+      "answer": "Generative APIs are a serverless service providing access to pre-configured models, billed per token usage. It's ideal for getting started and for applications with variable traffic. Managed Inference, on the other hand, allows you to deploy curated or custom models on dedicated instances with predictable throughput and is billed by the hour. It offers more control, enhanced security features, and is suitable for applications requiring fixed billing and high performance."
+    },
+    {
+      "question": "Are Scaleway's Generative APIs compatible with OpenAI's libraries?",
+      "answer": "Yes, they are designed to be compatible with OpenAI libraries and SDKs, including the OpenAI Python client and LangChain SDKs. This allows for a seamless drop-in replacement by changing the `base_url` to `https://api.scaleway.ai/v1` and using your Scaleway API key."
+    },
+    {
+      "question": "Where are the AI models for Generative APIs hosted?",
+      "answer": "All models are currently hosted in a secure data center located in Paris, France, operated by OPCORE. This ensures low latency for European users and compliance with European data privacy regulations like GDPR."
+    },
+    {
+      "question": "What is a 'context window'?",
+      "answer": "A context window is the maximum amount of prompt data (measured in tokens) that a model can consider when generating a response. Using a model with a larger context window allows you to provide more information and context, leading to more relevant and accurate responses."
+    },
+    {
+      "question": "What does the 'temperature' parameter do?",
+      "answer": "The 'temperature' is a parameter that controls the randomness of the model's output. A higher temperature (e.g., 0.8) results in more creative and diverse outputs, while a lower temperature (e.g., 0.2) makes the model's responses more deterministic and focused."
+    },
+    {
+      "question": "How can I get a response in a valid JSON format?",
+      "answer": "You can use 'JSON mode' or 'Structured outputs'. To activate JSON mode, provide the `response_format` parameter with `{\"type\": \"json_object\"}`. For more reliable and structured JSON, use the schema mode by setting `response_format` to `{\"type\": \"json_schema\"}` and defining its `\"json_schema\": {}`. This is especially useful for API-driven applications where a machine-readable format is essential."
+    },
+    {
+      "question": "What is Retrieval Augmented Generation (RAG)?",
+      "answer": "Retrieval Augmented Generation (RAG) is a technique that enhances generative models by integrating information retrieval. Before generating a response, the model fetches relevant data from external sources. This ensures the output is more accurate and contextually relevant, especially for queries requiring up-to-date or specific information."
+    },
+    {
+      "question": "What is 'streaming' in the context of Generative APIs?",
+      "answer": "Streaming is a feature that allows responses to be delivered in real-time. Instead of waiting for the full response, you receive parts of the output as they are generated. Scaleway follows the Server-sent events (SSE) standard for this, which enhances user experience by providing immediate feedback."
+    },
+    {
+      "question": "I need to integrate Generative APIs with LangChain in my Python project. Can you provide a code snippet for function calling?",
+      "answer": "Yes, here is an example of how to set up and use function calling with LangChain and Scaleway's Generative APIs. First, install the necessary libraries:\n```bash\npip install 'langchain>=0.3.24' 'langchain-core>=0.3.55' 'langchain-openai>=0.3.14'\n```\nThen, use the following Python code:\n```python\nfrom langchain_core.messages import HumanMessage\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.tools import tool\n\n@tool\ndef multiply(a: int, b: int) -> int:\n    \"\"\"Multiplies a and b.\"\"\"\n    return a * b\n\ntools = [multiply]\n\n# Configure the model to use Scaleway's API\nllm = ChatOpenAI(\n    model=\"mistral-small-3.1-24b-instruct-2503\",\n    api_key=\"YOUR_SCW_SECRET_KEY\",\n    base_url=\"[https://api.scaleway.ai/v1](https://api.scaleway.ai/v1)\"\n)\n\nllm_with_tools = llm.bind_tools(tools)\n\nquery = \"What is 3 * 12?\"\n\nmessages = [HumanMessage(query)]\nai_msg = llm_with_tools.invoke(messages)\nmessages.append(ai_msg)\n\nfor tool_call in ai_msg.tool_calls:\n    selected_tool = {\"multiply\": multiply}[tool_call[\"name\"].lower()]\n    tool_msg = selected_tool.invoke(tool_call[\"args\"])\n    messages.append(tool_msg)\n\nfinal_response = llm_with_tools.invoke(messages)\nprint(final_response.content)\n```"
+    },
+    {
+      "question": "How can I use LlamaIndex with Scaleway's Generative APIs?",
+      "answer": "You can use the `OpenAILike` client from LlamaIndex. First, install the library: `pip install llama-index-llms-openai-like`. Then, configure it in your Python script like this:\n\n```python\nfrom llama_index.llms.openai_like import OpenAILike\nfrom llama_index.core.llms import ChatMessage\n\nllm = OpenAILike(\n    model=\"llama-3.1-8b-instruct\",\n    api_key=\"<YOUR_SCW_SECRET_KEY>\",\n    api_base=\"[https://api.scaleway.ai/v1](https://api.scaleway.ai/v1)\",\n    max_tokens=512,\n    temperature=0.7\n)\n\nresponse = llm.chat([ChatMessage(content=\"Could you tell me about Scaleway please ?\")])\nprint(response)\n```"
+    },
+    {
+      "question": "I'm getting a `403 - Forbidden` error. What could be the cause?",
+      "answer": "A `403 - Forbidden` error indicates that your API key is invalid or lacks the necessary permissions. You should:\n1. Ensure you are providing a valid API secret key in the `Authorization: Bearer <key>` header.\n2. Check that the IAM user or application has the required permission sets, such as `GenerativeApisModelAccess` or `GenerativeApisFullAccess`.\n3. If you only have access to a specific Project, make sure you are using the correct project-scoped URL: `https://api.scaleway.ai/{project_id}/v1`."
+    },
+    {
+      "question": "My API call is failing with a `429 - Too Many Requests` error. Why?",
+      "answer": "A `429 - Too Many Requests` error means you are exceeding your current quota. This can be based on two metrics: requests per minute or tokens per minute (input + output). To solve this, you can:\n1. Slow down your request rate to stay within your organization's quotas.\n2. Increase your quotas by adding a payment method and verifying your identity.\n3. Reduce the size of the input or output tokens in your requests.\n4. For higher volumes, consider using Managed Inference, which does not have these specific rate limits."
+    },
+    {
+      "question": "How can I monitor my token consumption?",
+      "answer": "You can monitor your token consumption in real-time using Scaleway Cockpit, which is accessible from the 'Metrics' tab in the Generative API section of the Scaleway console. Note that Cockpit dashboards are isolated by Project, so you must select the correct project first. While the overall token counter is updated in real-time, graphs showing consumption over time may take up to an hour to update."
+    },
+    {
+      "question": "Is it possible to set a maximum billing threshold to avoid unexpected costs?",
+      "answer": "Currently, you cannot configure a specific usage threshold that automatically blocks the service. However, you can:\n1. Set up billing alerts to be notified when you reach certain budget thresholds.\n2. Note that your total billing is inherently limited by the API rate limits.\n3. For a fixed billing model, you should use Scaleway's Managed Inference service, which is billed hourly for provisioned resources."
+    },
+    {
+      "question": "I'm building a chatbot. Why does the model not remember previous parts of our conversation?",
+      "answer": "Large Language Models are stateless, meaning they do not retain memory of past interactions on their own. To make the model 'remember', you must include the entire conversation history (both user and assistant messages) in the `messages` array of every API request. Each new request should append the latest user message to the existing conversation history."
+    },
+    {
+      "question": "What is the model lifecycle policy? What happens when a model becomes 'Deprecated'?",
+      "answer": "The model lifecycle has four statuses: Preview, Active, Deprecated, and End-of-Life (EOL).\n- **Preview**: A model for testing, not yet guaranteed to become Active.\n- **Active**: The model is fully supported and updated.\n- **Deprecated**: A newer version is available. The deprecated model remains usable until a specified EOL date, but it's recommended to migrate to the active version. You will receive a 3-month notice before an Active model is marked as EOL.\n- **EOL**: The model is retired and no longer accessible."
+    },
+    {
+      "question": "Does Scaleway use my prompts or API data to train its models?",
+      "answer": "No. According to the privacy policy, Scaleway does not collect, read, reuse, or analyze the content of your inputs, prompts, or the outputs generated by the API. Your data is not used for training, is not accessible to other customers, the model creators, or any third-party services."
+    },
+    {
+      "question": "Generate a cURL command to list all available models.",
+      "answer": "Here is the cURL command to list the available models. Make sure you have exported your secret key as the environment variable `SCW_SECRET_KEY`.\n\n```bash\nexport SCW_SECRET_KEY=your_api_secret_key_here\n\ncurl -s \\\n     --url \"[https://api.scaleway.ai/v1/models](https://api.scaleway.ai/v1/models)\" \\\n     --header \"Authorization: Bearer ${SCW_SECRET_KEY}\"\n```"
+    },
+    {
+      "question": "Generate a cURL command for the Chat API to ask a question to the `llama-3.1-8b-instruct` model.",
+      "answer": "Certainly. This command sends a simple user message to the `llama-3.1-8b-instruct` model. Remember to set your `SCW_SECRET_KEY` environment variable.\n\n```bash\ncurl --request POST \\\n     --url [https://api.scaleway.ai/v1/chat/completions](https://api.scaleway.ai/v1/chat/completions) \\\n     --header \"Authorization: Bearer ${SCW_SECRET_KEY}\" \\\n     --header 'Content-Type: application/json' \\\n     --data '{\n       \"model\": \"llama-3.1-8b-instruct\",\n       \"messages\": [\n         {\n           \"role\": \"user\",\n           \"content\": \"What is quantum computing?\"\n         }\n       ]\n     }'\n```"
+    },
+    {
+      "question": "How do I query an embedding model? Provide a cURL example.",
+      "answer": "You can query an embedding model using the `/v1/embeddings` endpoint. Here is a cURL example to get a vector representation for a sentence using the `bge-multilingual-gemma2` model:\n\n```bash\ncurl [https://api.scaleway.ai/v1/embeddings](https://api.scaleway.ai/v1/embeddings) \\\n     -H \"Authorization: Bearer $SCW_SECRET_KEY\" \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\n         \"model\": \"bge-multilingual-gemma2\",\n         \"input\": \"Here is a sentence to embed as a vector\"\n     }'\n```"
+    },
+    {
+      "question": "Which chat model does Scaleway recommend for getting started?",
+      "answer": "If you are unsure which chat model to use, the documentation currently recommends starting with Llama 3.1 8B Instruct (`llama-3.1-8b-instruct`)."
+    },
+    {
+      "question": "How do I configure the Continue extension in VS Code to use Scaleway's code models?",
+      "answer": "You need to edit your `config.json` file located at `~/.continue/config.json`. Add a model configuration pointing to the Scaleway provider like this:\n\n```json\n{\n  \"models\": [\n    {\n      \"model\": \"qwen2.5-coder-32b-instruct\",\n      \"title\": \"Qwen2.5 Coder\",\n      \"provider\": \"scaleway\",\n      \"apiKey\": \"###SCW_SECRET_KEY###\"\n    }\n  ],\n  \"embeddingsProvider\": {\n    \"model\": \"bge-multilingual-gemma2\",\n    \"provider\": \"scaleway\",\n    \"apiKey\": \"###SCW_SECRET_KEY###\"\n  }\n}\n```\nReplace `###SCW_SECRET_KEY###` with your actual key. You can also configure it through the Continue graphical interface in VS Code by selecting 'Scaleway' as the provider."
+    },
+    {
+      "question": "How can I query a vision model with an image URL?",
+      "answer": "You can query a vision model by sending a `content` array that includes objects of type `text` and `image_url`. Here is a Python example using the OpenAI SDK:\n\n```python\nfrom openai import OpenAI\n\nclient = OpenAI(\n    base_url=\"[https://api.scaleway.ai/v1](https://api.scaleway.ai/v1)\",\n    api_key=\"<SCW_SECRET_KEY>\"\n)\n\nresponse = client.chat.completions.create(\n    model=\"pixtral-12b-2409\",\n    messages=[\n        {\n            \"role\": \"user\",\n            \"content\": [\n                {\"type\": \"text\", \"text\": \"What is happening in this image?\"},\n                {\"type\": \"image_url\", \"image_url\": {\"url\": \"[https://example.com/image.jpg](https://example.com/image.jpg)\"}}\n            ]\n        }\n    ]\n)\n\nprint(response.choices[0].message.content)\n```"
+    },
+    {
+      "question": "What is 'function calling' and which models support it?",
+      "answer": "Function calling allows a Large Language Model (LLM) to interact with external tools or APIs. The model can identify the appropriate function to call based on a user's request, extract the necessary parameters, and return the function call details in a structured JSON format. All chat models hosted by Scaleway support function calling."
+    },
+    {
+      "question": "I'm trying to use function calling, but my model isn't triggering the tool. What might be wrong?",
+      "answer": "Some models, especially if you don't provide a system prompt, may need to be explicitly told they can use external functions. The documentation notes that if you do not provide a system prompt when using tools, Scaleway will automatically add a generic one that works for that model. For best results, craft a system prompt that encourages the use of the provided tools to solve the user's query."
+    },
+    {
+      "question": "How do I scope my API requests to a specific Scaleway Project?",
+      "answer": "To scope your consumption and access to a specific Project, you need to include your Project ID in the API service URL. First, find your Project ID in your Project settings in the Scaleway console. Then, modify the URL like this: `https://api.scaleway.ai/YOUR_PROJECT_ID/v1`. If no Project ID is specified, the default Project is used."
+    },
+    {
+      "question": "My JSON output from the API is invalid or not what I expected. How can I fix this?",
+      "answer": "If your structured output is not working correctly, consider these solutions:\n1.  **Use Schema Mode**: Instead of `\"type\": \"json_object\"`, use `\"type\": \"json_schema\"` and provide a detailed JSON schema to guide the model. This is more reliable.\n2.  **Check Field Names**: Ensure you are using the correct field name `response_format` in your request.\n3.  **Adjust Temperature**: Lower the `temperature` value (e.g., below 0.6 for Llama models) to make the output more deterministic and less likely to contain invalid characters.\n4.  **Increase Max Tokens**: Make sure the `max_tokens` limit is high enough for the model to generate the complete JSON structure, including closing brackets.\n5.  **Refine your Prompt**: Explicitly instruct the model in your system or user prompt to generate JSON and describe the fields you expect. For example: `Only answer in JSON using '{' as the first character.`"
+    },
+    {
+      "question": "What are 'stop words'?",
+      "answer": "'Stop words' are a parameter you can set to tell the model to stop generating further tokens after one or more of your chosen words or strings have been generated. This is useful for controlling the end of the model's output precisely, as it will cut off at the first occurrence of any of the specified stop strings."
+    },
+    {
+      "question": "What is the difference between Time to First Token (TTFT) and Inter-token Latency (ITL)?",
+      "answer": "**Time to First Token (TTFT)** measures the time from when a request is sent until the first token of the response is returned. It's a key metric for responsiveness. **Inter-token Latency (ITL)** is the average time elapsed *between* each generated token. It measures the speed of the generation process after it has started."
+    },
+    {
+      "question": "Can I increase the maximum output tokens (`max_tokens`) for a model?",
+      "answer": "No, you cannot increase the maximum output tokens beyond the predefined limits for each model in Generative APIs. these limits are in place to protect against very long generations that could time out and to prevent uncontrolled billing from models that might enter infinite generation loops. If you require a higher limit, you should use Scaleway's Managed Inference service, where these limits do not apply."
+    },
+    {
+      "question": "How do I configure the Zed IDE for AI assistance using Scaleway Generative APIs?",
+      "answer": "First, edit your Zed `settings.json` file to add the Scaleway endpoint and a model like `qwen2.5-coder-32b-instruct`. Then, open the AI Assistant configuration in Zed and paste your Scaleway secret key as the API key for the OpenAI provider. \n\nHere's the `settings.json` configuration:\n```json\n{\n  \"language_models\": {\n    \"openai\": {\n      \"api_url\": \"[https://api.scaleway.ai/v1](https://api.scaleway.ai/v1)\",\n      \"available_models\": [\n        {\n          \"name\": \"qwen2.5-coder-32b-instruct\",\n          \"display_name\": \"Qwen 2.5 Coder 32B\",\n          \"max_tokens\": 128000\n        }\n      ]\n    }\n  },\n  \"assistant\": {\n    \"default_model\": {\n      \"provider\": \"openai\",\n      \"model\": \"qwen2.5-coder-32b-instruct\"\n    }\n  }\n}\n```\nFor persistence, it is recommended to set your key as an `OPENAI_API_KEY` environment variable before launching Zed."
+    },
+    {
+      "question": "What are the required HTTP headers for making a request to the Generative APIs?",
+      "answer": "All requests must include two main headers:\n1. `Authorization: Bearer <SCW_SECRET_KEY>`: For authentication, where `<SCW_SECRET_KEY>` is your secret API key.\n2. `Content-Type: application/json`: For POST requests, to indicate that the request body is in JSON format."
+    },
+    {
+      "question": "I am getting a `504 Gateway Timeout` error. What should I do?",
+      "answer": "A `504 Gateway Timeout` error usually happens if the query is too complex and takes too long to process, or if the model enters an infinite generation loop. To resolve this, you can:\n- Set a stricter (lower) `max_tokens` limit to prevent overly long responses.\n- Reduce the size of your input or split it into multiple, smaller API requests.\n- If the problem persists, consider using Managed Inference, which does not enforce a query timeout."
+    },
+    {
+      "question": "How are images tokenized for vision models?",
+      "answer": "For vision models, an image is divided into a grid of patches, and each patch is converted into a token. For example, the documentation mentions that for the `mistral-small-3.1-24b-instruct-2503` model, an image token corresponds to a square of 28x28 pixels. The exact tokenization depends on the model."
+    },
+    {
+      "question": "What is the maximum resolution for images sent to vision models?",
+      "answer": "Image sizes are limited to 32 million pixels. For instance, a resolution of about 8096 x 4048 pixels. Images with a higher resolution are supported but will be automatically downscaled to fit within these limitations while preserving their aspect ratio."
+    },
+    {
+      "question": "Can I use LangChain with Javascript/Typescript to connect to Scaleway APIs?",
+      "answer": "Yes. First, install the required packages: `npm install langchain @langchain/openai`. Then, you can use the `ChatOpenAI` class and configure it to point to Scaleway's endpoint. Here is a code example:\n\n```javascript\nimport { ChatOpenAI } from \"@langchain/openai\";\n\nconst chat = new ChatOpenAI({\n    apiKey: \"<API secret key>\",\n    model: \"llama-3.1-8b-instruct\",\n    configuration: {\n        baseURL: \"[https://api.scaleway.ai/v1](https://api.scaleway.ai/v1)\",\n    }\n});\n\nconst response = await chat.invoke(\"Tell me a joke\");\nconsole.log(response.content);\n```"
+    },
+    {
+      "question": "What is the license for the `llama-3.1-8b-instruct` model and do I need to comply with it?",
+      "answer": "The license for `llama-3.1-8b-instruct` is the 'Llama 3.1 Community' license. And yes, you must comply with the model licenses when using Generative APIs. The applicable license for each model is listed in the 'Supported models' documentation and in the Console Playground."
+    },
+    {
+      "question": "My embedding vectors from `bge-multilingual-gemma2` are too large for my PostgreSQL `pgvector` index. What can I do?",
+      "answer": "The `bge-multilingual-gemma2` model generates vectors with 3584 dimensions, which exceeds the 2000-dimension limit for `pgvector` indexes like `hnsw`. You have a few options:\n1. Use a vector store that supports higher dimensions, like Qdrant.\n2. Disable indexing on your vectors. This might impact search performance but will allow you to store them. For example, with Langchain's `PGVector` method, do not create an index, or with Mastra, specify `indexConfig: {\"type\":\"flat\"}`.\n3. Use a model with fewer dimensions by deploying it on Managed Inference, such as `sentence-t5-xxl` which has 768 dimensions."
+    },
+    {
+      "question": "Is it possible to have multiple user messages in a row in the chat API?",
+      "answer": "No, this is not supported by most models. After an optional initial system message, the conversation roles in the `messages` array must alternate between `user` and `assistant`. If you send successive messages with the role `user`, you will likely receive a `400 Bad Request` error. You should concatenate the user content into a single message or structure the conversation to include assistant responses in between."
+    },
+    {
+      "question": "What does the 'preview' status on a model mean?",
+      "answer": "The 'Preview' status indicates that a model is available for testing, but no service-level agreements (SLAs) are provided yet. The model is not guaranteed to transition to the 'Active' status and may be removed with a 1-month notice. It's suitable for experimentation but not recommended for production applications requiring stability."
+    },
+    {
+      "question": "How do I use streaming with an asynchronous request in Python?",
+      "answer": "You can use the `AsyncOpenAI` client from the OpenAI library. Here is an example of how to make an async request with streaming enabled:\n\n```python\nimport asyncio\nfrom openai import AsyncOpenAI\n\nclient = AsyncOpenAI(\n    base_url=\"[https://api.scaleway.ai/v1](https://api.scaleway.ai/v1)\",\n    api_key=\"<SCW_API_KEY>\"\n)\n\nasync def main():\n    stream = await client.chat.completions.create(\n        model=\"llama-3.1-8b-instruct\",\n        messages=[{\"role\": \"user\", \"content\": \"Sing me a song\"}],\n        stream=True,\n    )\n    async for chunk in stream:\n        if chunk.choices and chunk.choices[0].delta.content:\n            print(chunk.choices[0].delta.content, end=\"\")\n\nasyncio.run(main())\n```"
+    },
+    {
+      "question": "I need to give my users access to their token consumption data, but they don't have Scaleway accounts. How can I do this?",
+      "answer": "The documentation suggests three ways to do this:\n1. **Grafana Access**: Create dedicated Grafana users in Cockpit with a read-only 'Viewer' role. Note that they will see all dashboards for that project.\n2. **Billing API**: Collect consumption data from the Scaleway Billing API, which can detail usage by project, and then expose this data to your users through your own interface.\n3. **Cockpit Data Sources**: Directly query the Cockpit data source using its Prometheus-compatible API. You can generate a Cockpit token and use a cURL command to fetch the `generative_apis_tokens_total` metric for a specific time range."
+    },
+    {
+      "question": "What is the `qwen2.5-coder-32b-instruct` model best suited for?",
+      "answer": "Based on its name ('coder') and its recommended usage in the documentation for IDE integrations like Continue and Zed, the `qwen2.5-coder-32b-instruct` model is specialized for tasks related to programming, such as code generation, understanding, and fixing. It's an ideal choice for an AI coding assistant."
+    },
+    {
+      "question": "My request with a vision model failed with '400: Bad Request - You exceeded maximum context window'. I only sent one small image. Why?",
+      "answer": "A '400: Bad Request - You exceeded maximum context window' error can happen for two reasons:\n1. Your total input (text prompt + image tokens) exceeds the model's context window.\n2. The combination of your input tokens and the requested output tokens (`max_tokens`) exceeds the model's context window.\n\nEven with a small image, if you request a very large `max_tokens` value for the completion, the total can exceed the limit. Try reducing the value of `max_tokens` in your request."
+    },
+    {
+      "question": "How do I use structured outputs with a manually defined JSON schema instead of Pydantic?",
+      "answer": "Yes, you can define the schema directly within the API call. You would set `response_format` to `{\"type\": \"json_schema\"}` and then provide the schema structure manually inside the `json_schema` object. Here is an example:\n\n```python\nresponse = client.chat.completions.create(\n    model=\"llama-3.1-8b-instruct\",\n    messages=[\n        {\n            \"role\": \"system\",\n            \"content\": \"Extract user information from the following text into JSON.\"\n        },\n        {\n            \"role\": \"user\",\n            \"content\": \"The user is John Doe, age 30.\"\n        }\n    ],\n    response_format={\n        \"type\": \"json_schema\",\n        \"json_schema\": {\n            \"name\": \"UserInfo\",\n            \"schema\": {\n                \"type\": \"object\",\n                \"properties\": {\n                    \"name\": {\"type\": \"string\"},\n                    \"age\": {\"type\": \"integer\"}\n                },\n                \"required\": [\"name\", \"age\"]\n            }\n        }\n    }\n)\n\nprint(response.choices[0].message.content)\n```"
+    },
+    {
+      "question": "What happens if I set the `stream` parameter to `true` in a chat completion request?",
+      "answer": "When you set `stream=True`, the API will not wait for the entire response to be generated. Instead, it will send back data in chunks as tokens are produced. This is based on the Server-sent events (SSE) standard. It's highly beneficial for interactive applications like chatbots, as it allows the user to see the response being formed in real-time, improving the user experience."
+    },
+    {
+      "question": "In the context of the Chat API, which parameters are currently unsupported?",
+      "answer": "According to the documentation, the following parameters for chat completions are currently unsupported by Scaleway's Generative APIs: `frequency_penalty`, `n`, `top_logprobs`, `logit_bias`, and `user`. If you have a specific use case for these, the documentation suggests contacting Scaleway support."
+    },
+    {
+      "question": "What is the role of `prompt engineering`?",
+      "answer": "Prompt engineering is the process of carefully crafting and structuring the input (the 'prompt') given to a model to guide it toward generating the most accurate and desired output. Effective prompt design is crucial for complex or creative tasks and often requires experimentation to find the right balance between providing specific instructions and allowing the model flexibility."
+    },
+    {
+      "question": "Can I use the `gemma-3-27b-it` model for both chat and vision tasks?",
+      "answer": "Yes. The `gemma-3-27b-it` model is listed in the documentation as a 'Multimodal model', which means it is capable of handling both text-based chat and analyzing images (vision)."
+    },
+    {
+      "question": "I am using the `Bolt.diy` software to generate an application, but it's failing. What are the specific model requirements for this tool?",
+      "answer": "The `Bolt.diy` tool requires a model with a maximum output token limit of at least 8000 tokens, as this is the default amount it requests. The documentation suggests starting with the `gemma-3-27b-it` model for best results. You must ensure the model you select in Bolt's settings meets this requirement."
+    },
+    {
+      "question": "How do I encode a local image file to Base64 in Python to use with a vision model?",
+      "answer": "You can use the `Pillow` and `base64` libraries. First, install them: `pip install pillow`. Then, use a function to open the image, save it to an in-memory buffer, and encode it. The final string must be prefixed with `data:image/jpeg;base64,`.\n\n```python\nimport base64\nfrom io import BytesIO\nfrom PIL import Image\n\ndef encode_image_to_base64(image_path):\n    with Image.open(image_path) as img:\n        buffered = BytesIO()\n        img.save(buffered, format=\"JPEG\")\n        encoded_string = base64.b64encode(buffered.getvalue()).decode(\"utf-8\")\n    return f\"data:image/jpeg;base64,{encoded_string}\"\n\nbase64_url = encode_image_to_base64(\"path/to/your/image.jpg\")\n\n# You can then use `base64_url` in your API request payload.\n```"
+    },
+    {
+      "question": "What is the purpose of the `tool_choice` parameter in a function calling request?",
+      "answer": "The `tool_choice` parameter gives you more control over which function the model calls. By default, it's set to `auto`, allowing the model to decide whether to call a function and which one. You can force the model to call a specific function by setting it, for example: `tool_choice={\"type\": \"function\", \"function\": {\"name\": \"my_specific_function\"}}`."
+    },
+    {
+      "question": "Which permission set is required to query models using Generative APIs?",
+      "answer": "To query AI models hosted by Scaleway Generative APIs, an IAM user or application needs to have at least one of the following permission sets: `GenerativeApisModelAccess`, `GenerativeApisFullAccess`, or the all-encompassing `AllProductsFullAccess`."
+    },
+    {
+      "question": "I'm getting an HTTP error `416: Range Not Satisfiable`. What does this mean?",
+      "answer": "This error, specifically described as `max_completion_tokens is limited for this model` in the troubleshooting guide, means you have provided a value for `max_tokens` (or `max_completion_tokens`) that is higher than the model's maximum output limit. To fix this, you must reduce the `max_tokens` value in your request to be within the supported range for that specific model, or switch to a model that supports a higher output limit."
+    },
+    {
+      "question": "How does Scaleway ensure my data is secure when using Generative APIs?",
+      "answer": "Scaleway implements several technical and organizational security measures. These include:\n- **Hosting Control**: Models are hosted on Scaleway's own infrastructure in Europe.\n- **Encryption**: All traffic is encrypted in-transit using TLS.\n- **Endpoint Security**: Public endpoints are secured with API key tokens.\n- **Standard Measures**: Secure authentication (passwords, 2FA), secure data deletion, and physical server security are also in place."
+    },
+    {
+      "question": "What is the data retention policy for my API usage data?",
+      "answer": "According to the Generative APIs Privacy Policy, aggregated and anonymized API usage data (like token counts and request metadata, but not your content) is stored for up to 6 months for the purpose of performance monitoring and service improvement."
+    },
+    {
+      "question": "Can I perform parallel function calling, and are there any model limitations?",
+      "answer": "Yes, you can call multiple functions in a single turn. This is known as parallel function calling. However, the documentation explicitly states that Meta models (like Llama) do not support parallel tool calls. You would need to use a different model, like one from Mistral, to leverage this feature."
+    },
+    {
+      "question": "My Cockpit metrics for token consumption are not showing up on the graph, but the total counter is correct. Is there a problem?",
+      "answer": "This is likely not a problem but a delay in data processing. The troubleshooting guide explains that while the overall token counters are updated in real-time, the graphs that show consumption over time can take up to one hour to update as they provide averaged consumption data. If the counter is updating, you just need to wait for the graph to populate."
+    },
+    {
+      "question": "How should I structure an API request for a multi-turn conversation?",
+      "answer": "For a multi-turn conversation, your `messages` array must contain the full history of the interaction, alternating between `user` and `assistant` roles. For each new turn, you append the previous assistant's response and the new user's message to the array. \nExample:\n```json\n\"messages\": [\n  {\n    \"role\": \"user\",\n    \"content\": \"What is the solution to 1+1= ?\"\n  },\n  {\n    \"role\": \"assistant\",\n    \"content\": \"2\"\n  },\n  {\n    \"role\": \"user\",\n    \"content\": \"Double this number\"\n  }\n]\n```"
+    },
+    {
+      "question": "How do I configure the Continue plugin in IntelliJ IDEA to use a Scaleway model from a specific project?",
+      "answer": "To use a specific Scaleway Project, you need to add the `apiBase` field to your model configuration in the `~/.continue/config.json` file. This field should point to the project-scoped URL.\n\n```json\n{\n  \"models\": [\n    {\n      \"model\": \"qwen2.5-coder-32b-instruct\",\n      \"title\": \"Qwen2.5 Coder\",\n      \"provider\": \"scaleway\",\n      \"apiKey\": \"###SCW_SECRET_KEY###\",\n      \"apiBase\": \"[https://api.scaleway.ai/###PROJECT_ID###/v1/](https://api.scaleway.ai/###PROJECT_ID###/v1/)\"\n    }\n  ]\n}\n```\nReplace `###SCW_SECRET_KEY###` with your key and `###PROJECT_ID###` with your actual Project ID."
+    },
+    {
+      "question": "What is the `sentence-t5-xxl` model, and is it still available?",
+      "answer": "The `sentence-t5-xxl` model was an embedding model provided by SBERT. According to the 'End of Life (EOL) models' table, it reached its End of Life on February 26, 2025, and is no longer accessible from Generative APIs. However, it can still be deployed on dedicated Managed Inference deployments."
+    },
+    {
+      "question": "What is `top_p` sampling and how does it relate to the `temperature` parameter?",
+      "answer": "`top_p` sampling, also known as nucleus sampling, is a method to control the diversity of the model's output. The model considers only the most probable tokens whose cumulative probability exceeds the `top_p` value. `temperature` adjusts the raw probabilities of all tokens (making them more or less random). The documentation advises that for most use cases, you only need to adjust `temperature` and should consider `top_p` an advanced parameter. They can be used together, but it's often simpler to tune one at a time."
+    },
+    {
+      "question": "I need to perform a custom integration without using the OpenAI SDK. Can you show a Python example using the `requests` library?",
+      "answer": "Certainly. You can make direct HTTP requests using a library like `requests`. First, install it: `pip install requests`. Then use the following code, replacing `<API secret key>` with your key.\n\n```python\nimport requests\nimport json\n\napi_key = \"<API secret key>\"\napi_url = \"[https://api.scaleway.ai/v1/chat/completions](https://api.scaleway.ai/v1/chat/completions)\"\n\nheaders = {\n    \"Authorization\": f\"Bearer {api_key}\",\n    \"Content-Type\": \"application/json\"\n}\n\ndata = {\n    \"model\": \"llama-3.1-8b-instruct\",\n    \"messages\": [{\"role\": \"user\", \"content\": \"Explain black holes\"}]\n}\n\nresponse = requests.post(api_url, json=data, headers=headers)\n\nif response.status_code == 200:\n    print(response.json()[\"choices\"][0][\"message\"][\"content\"])\nelse:\n    print(f\"Error: {response.status_code}\")\n    print(response.text)\n```"
+    },
+    {
+      "question": "What is the maximum number of images I can include in a single request to a vision model?",
+      "answer": "According to the FAQ in the vision models documentation, each conversation (per request) can handle up to 12 images. If you attempt to add a 13th image, you will receive a `400 Bad Request` error."
+    },
+    {
+      "question": "In the pricing example for exceeding the free tier, why is the `llama-3.3-70b-instruct` input of 800k tokens billed as 1 million tokens?",
+      "answer": "The billing system operates with a minimum unit of 1 million tokens. Even though you only consumed 800,000 tokens for that specific line item, it is rounded up to the nearest million for billing calculation purposes. In that specific example, the free tier credit of 1 million tokens is applied to this line, so the final charge for it is 0€, but the consumption is accounted for at the 1 million token level."
+    },
+    {
+      "question": "Does the Chatbox AI integration work on mobile devices?",
+      "answer": "Yes. The documentation for Chatbox AI states that it is a multi-platform client available on Windows, macOS, Android, iOS, Web, and Linux, making it compatible with Scaleway's Generative APIs on mobile devices."
+    },
+    {
+      "question": "I am getting a `422 - Missing Model` error. What did I do wrong?",
+      "answer": "A `422 - Missing Model` error code means that the `model` key, which is a required parameter, is completely missing from your request payload's JSON body. You must include the `model` key with the name of the model you wish to query, for example: `\"model\": \"llama-3.1-8b-instruct\"`."
+    },
+    {
+      "question": "How can I get more concise, less verbose answers from a code model when using the Continue extension?",
+      "answer": "You can add a `systemMessage` parameter to your model's configuration in the `config.json` file. This modifies the system prompt to instruct the model on its behavior. For example, to get concise responses, you could use:\n\n```json\n{\n  \"models\": [\n    {\n      \"model\": \"qwen2.5-coder-32b-instruct\",\n      \"provider\": \"scaleway\",\n      \"apiKey\": \"...\",\n      \"systemMessage\": \"You are an expert software developer. You give concise responses.\"\n    }\n  ]\n}\n```"
+    },
+    {
+      "question": "Are the Generative APIs subject to non-European laws like the American Cloud Act?",
+      "answer": "No. The data privacy documentation explicitly states that as a European company, Scaleway’s AI services are not subject to extraterritorial laws like the American Cloud Act. This ensures that data hosted in Europe is protected by European laws, providing a high level of data sovereignty."
+    },
+    {
+      "question": "Which embedding model is currently offered and what is its embedding dimension?",
+      "answer": "The currently offered embedding model is `bge-multilingual-gemma2` from BAAI. It has an embedding dimension of 3584 and a context window of 4096 tokens."
+    },
+    {
+      "question": "What is the 'logprobs' parameter in the Chat API?",
+      "answer": "`logprobs` is a supported parameter that, when enabled, makes the model return the log probabilities of the output tokens. This is an advanced feature useful for developers who want to understand the model's confidence in its token choices or for implementing more complex sampling techniques. It is not needed for general use."
+    },
+    {
+      "question": "The model `llama-3.1-70b-instruct` is listed as deprecated. What will happen if I continue to use it after its End of Life (EOL) date?",
+      "answer": "The EOL date for `llama-3.1-70b-instruct` is May 25th, 2025. The documentation states that after this date, your API requests to this model will be automatically redirected to the newer `llama-3.3-70b` model. While this prevents your application from breaking completely, Scaleway cannot guarantee that the model outputs will remain similar, so migration is highly recommended."
+    },
+    {
+      "question": "How do rate limits differ for users who have not registered a valid payment method?",
+      "answer": "If you have a Scaleway account but have not registered a valid payment method, stricter rate limits apply. These limits are designed to ensure your usage stays within the free tier only. To get the base limits, you must add a payment method, and to increase them further, you must also verify your identity."
+    },
+    {
+      "question": "What happens if I try to use an unsupported parameter like `frequency_penalty` in my API request?",
+      "answer": "The documentation does not specify the exact error response for using an unsupported parameter. However, standard API behavior suggests that the parameter will likely be ignored by the server. In some cases, it could potentially cause a `400 - Bad Request` error if the API gateway has strict validation. The safest approach is to only use the parameters listed as supported."
+    },
+    {
+      "question": "What are 'embeddings' and what are they used for?",
+      "answer": "Embeddings are numerical representations of text data in the form of dense vectors. They capture the semantic meaning of the text. In Generative APIs, embeddings are essential for tasks like similarity matching (finding text with similar meaning), clustering (grouping similar texts), and as inputs for other downstream machine learning models."
+    },
+    {
+      "question": "Can I get a billing breakdown by model type?",
+      "answer": "Yes. The FAQ mentions that you can access your bills, including past and provisional bills for the current month, in the billing section of the Scaleway Console. These bills provide a breakdown of token types and the specific models used."
+    },
+    {
+      "question": "When using `json_schema` for structured output, can I use advanced schema features like `$ref` or `anyOf`?",
+      "answer": "Yes. The documentation for structured outputs states that the schema mode supports complex types and validation mechanisms as per the JSON schema specification. This includes nested schemas composition (like `anyOf`, `allOf`, `oneOf`), the use of `$ref` for referencing other parts of the schema, and regular expressions for string validation."
+    },
+    {
+      "question": "The documentation for integrating with Bolt.diy mentions that my Scaleway Secret Key can be stored in browser cookies. Is this secure?",
+      "answer": "Storing secrets like API keys in browser cookies or local storage is generally not recommended for production applications due to security risks (e.g., Cross-Site Scripting - XSS attacks). The Bolt.diy documentation notes this as a method for local development. For better security, it suggests an alternative method: setting the key in an `.env` file on your local machine (`OPENAI_LIKE_API_KEY=...`) so it's not exposed in the browser."
+    },
+    {
+      "question": "What is the license for the `mistral-nemo-instruct-2407` model?",
+      "answer": "According to the 'Supported models' table in the documentation, the `mistral-nemo-instruct-2407` model is licensed under the Apache-2.0 license."
+    },
+    {
+      "question": "I'm receiving a `422 - Model Not Found` error, but I'm sure I spelled the model name correctly. What else could be the issue?",
+      "answer": "A `422 - Model Not Found` error means the model string you provided in the `model` field was not found. If you have double-checked the spelling against the supported models list, consider these possibilities:\n- The model may be temporarily unavailable or under maintenance (as was noted for `deepseek-r1`). Check the Scaleway status page or documentation notices.\n- The model may have reached its End-of-Life (EOL) and been removed from the API.\n- You might be making the request to an incorrect endpoint that doesn't have access to that model, although this is less likely."
+    },
+    {
+      "question": "What is the `Content-Type` header required for?",
+      "answer": "The `Content-Type: application/json` header is required for POST requests to the API. It tells the server that the body of your request is formatted as a JSON object. Without this header, the server would not know how to correctly parse the data you're sending, which would result in a `400 - Bad Request` error."
+    },
+    {
+      "question": "When using the Langchain integration for function calling, what is the purpose of appending the tool's response to the messages list?",
+      "answer": "After the model suggests a tool call, you execute the function externally. You must then append the result of that function back into the `messages` list with the `role: \"tool\"`. This provides the model with the information it requested. In the final step, you send this updated message list back to the model so it can use the function's output to formulate a final, human-readable answer to the original query."
+    },
+    {
+      "question": "Are there any service-level agreements (SLAs) or performance guarantees for Generative APIs?",
+      "answer": "According to the FAQ, Scaleway is currently working on defining the SLAs and performance guarantees for Generative APIs. As of the documentation's last update, more information on this topic is expected to be provided soon. For guaranteed performance, Managed Inference is the recommended alternative."
+    },
+    {
+      "question": "How can I request a new model to be added to the Generative APIs service?",
+      "answer": "The 'Supported models' page provides a link for this. You can suggest a new model or vote for an existing request on Scaleway's feature request platform at `https://feature-request.scaleway.com/?tags=ai-services`."
+    },
+    {
+      "question": "Why would I choose to use the JSON mode (`json_object`) if the structured output mode (`json_schema`) is more reliable?",
+      "answer": "You might choose the legacy JSON mode (`json_object`) for simpler use cases where you need a flexible JSON output but don't want to define a rigid schema. It's useful when you trust the model to infer a reasonable structure based on your prompt and the exact format isn't critical for your application's logic. However, for any production system that relies on a consistent data structure, the `json_schema` mode is highly recommended for its reliability."
+    },
+    {
+      "question": "What's the context window and maximum output tokens for the `llama-3.3-70b-instruct` model?",
+      "answer": "According to the 'Supported models' table, the `llama-3.3-70b-instruct` model has a context window of 131,000 tokens and a maximum output limit of 4096 tokens."
+    },
+    {
+      "question": "I see a `deepseek-r1-distill-llama-70b` model. What does 'distill' imply?",
+      "answer": "While the documentation doesn't explicitly define 'distill', in the context of machine learning, 'distillation' is a technique where a smaller, more efficient model (the 'student') is trained to mimic the behavior of a larger, more powerful model (the 'teacher'). The name `deepseek-r1-distill-llama-70b` suggests it is a distilled version of a DeepSeek model, likely trained to capture capabilities similar to a 70B Llama model but potentially with different performance or efficiency characteristics."
+    },
+    {
+      "question": "Can I use the vision model `pixtral-12b-2409` to generate an image?",
+      "answer": "No. The documentation for vision models explicitly states that they can understand and analyze images, but they cannot generate them. You can provide an image as input and ask questions about it, but you cannot ask it to create a new image."
+    },
+    {
+      "question": "How is my free tier usage calculated if I use multiple different models?",
+      "answer": "The free tier usage of 1,000,000 tokens is calculated by adding all input and output tokens you consume from *all models combined*. It is a single, aggregated pool of tokens, not a separate free tier for each model."
+    },
+    {
+      "question": "The documentation mentions that `stop` words can be a string or a list of strings. Can you give an example of using a list?",
+      "answer": "Using a list of strings for the `stop` parameter tells the model to halt generation as soon as it encounters *any* of the strings in the list. For example, if you're generating a numbered list and want it to stop after the third item, you could set `stop=[\"4.\", \"4)\"]`. The model will generate text until it is about to write either \"4.\" or \"4)\" and then stop, whichever comes first."
+    },
+    {
+      "question": "If I am using a custom HTTP integration, what should the body of my request look like?",
+      "answer": "The body of your POST request should be a raw JSON string. It must contain at a minimum the `model` and `messages` keys. A complete example for a cURL request body would be:\n\n```json\n{\n  \"model\": \"llama-3.1-8b-instruct\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"What is quantum computing?\"}],\n  \"temperature\": 0.7,\n  \"max_tokens\": 150\n}\n```\nYou would pass this as the data payload in your HTTP request."
+    },
+    {
+      "question": "What does the error message 'After the optional system message, conversation roles must alternate user/assistant/user/assistant/...' indicate?",
+      "answer": "This specific error message, noted as an example for Mistral models, indicates that the `messages` array in your request is not correctly formatted. It means you have sent two or more successive messages with the same role (e.g., two `user` messages in a row) instead of alternating between `user` and `assistant`. You must fix the message history to follow the alternating pattern."
+    },
+    {
+      "question": "Is there a way to verify my identity to increase rate limits without contacting support?",
+      "answer": "Yes. The documentation states that you can automatically increase your rate limits from the initial, stricter limits to the 'base' limits by registering a valid payment method and then completing the identity verification process through your Scaleway account settings (`/account/how-to/verify-identity/`). This is an automated step that does not require opening a support ticket."
+    }
+  ]
+}
