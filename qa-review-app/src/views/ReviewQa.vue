@@ -1,57 +1,116 @@
 <template>
   <div class="page-container">
-    <div class="review-card" v-if="currentPair">
-      <div class="qa-section">
-        <h2 class="question-title">Question</h2>
-        <textarea
-          v-model="currentPair.question"
-          class="text-field"
-          placeholder="Enter the question..."
-        ></textarea>
+    <div v-if="user" class="progress-container">
+      <div class="progress-header">
+        <span class="progress-title">Daily Goal</span>
+        <span class="progress-count"
+          >{{ dailyProgress }} / {{ dailyObjective }}</span
+        >
       </div>
-
-      <div class="qa-section">
-        <h2 class="answer-title">Answer</h2>
-        <textarea
-          v-model="currentPair.answer"
-          class="text-field answer-field"
-          placeholder="Enter the answer..."
-        ></textarea>
-      </div>
-
-      <div class="actions">
-        <div class="ratings-wrapper">
-          <div class="rating-group">
-            <label for="question-rating">Question Rating</label>
-            <input
-              id="question-rating"
-              type="number"
-              v-model.number="questionRating"
-              min="1"
-              max="5"
-            />
-          </div>
-          <div class="rating-group">
-            <label for="answer-rating">Answer Rating</label>
-            <input
-              id="answer-rating"
-              type="number"
-              v-model.number="answerRating"
-              min="1"
-              max="5"
-            />
-          </div>
-        </div>
-        <textarea
-          v-model="comment"
-          class="comment-field"
-          placeholder="Add an optional comment..."
-        ></textarea>
-        <button @click="submitReview" class="submit-button">
-          Submit and Next
-        </button>
+      <div class="progress-bar">
+        <div
+          class="progress-bar-fill"
+          :style="{ width: progressBarWidth + '%' }"
+        ></div>
       </div>
     </div>
+
+    <div class="review-card" v-if="currentPair">
+      <div class="qa-content">
+        <div class="qa-section">
+          <h2 class="question-title">Question</h2>
+          <div class="content-display" v-html="formattedQuestion"></div>
+        </div>
+        <div class="qa-section">
+          <h2 class="answer-title">Answer</h2>
+          <div class="content-display" v-html="formattedAnswer"></div>
+        </div>
+      </div>
+
+      <div class="actions-panel">
+        <div v-if="mode === 'view'" class="view-actions">
+          <button @click="setMode('rate')" class="action-button">Rate</button>
+          <button @click="setMode('edit')" class="action-button secondary">
+            Edit
+          </button>
+          <button @click="passQuestion" class="action-button pass-button">
+            Pass
+          </button>
+        </div>
+
+        <div v-else-if="mode === 'edit'" class="edit-panel">
+          <h3 class="panel-title">Edit Q&A</h3>
+          <div class="qa-section">
+            <label class="text-field-label">Edit Question</label>
+            <textarea
+              v-model="editablePair.question"
+              class="text-field"
+            ></textarea>
+          </div>
+          <div class="qa-section">
+            <label class="text-field-label">Edit Answer</label>
+            <textarea
+              v-model="editablePair.answer"
+              class="text-field answer-field"
+            ></textarea>
+          </div>
+          <div class="panel-actions">
+            <button @click="submitEditedContent" class="submit-button">
+              Submit Changes
+            </button>
+            <button @click="setMode('view')" class="cancel-button">
+              Cancel
+            </button>
+          </div>
+        </div>
+
+        <div v-else-if="mode === 'rate'" class="rate-panel">
+          <h3 class="panel-title">Rate this Q&A</h3>
+          <div class="ratings-wrapper">
+            <div class="rating-group">
+              <label>Question Rating</label>
+              <div class="star-rating">
+                <span
+                  v-for="n in 5"
+                  :key="n"
+                  @click="questionRating = n"
+                  :class="{ filled: n <= questionRating }"
+                >
+                  ★
+                </span>
+              </div>
+            </div>
+            <div class="rating-group">
+              <label>Answer Rating</label>
+              <div class="star-rating">
+                <span
+                  v-for="n in 5"
+                  :key="n"
+                  @click="answerRating = n"
+                  :class="{ filled: n <= answerRating }"
+                >
+                  ★
+                </span>
+              </div>
+            </div>
+          </div>
+          <textarea
+            v-model="comment"
+            class="comment-field"
+            placeholder="Add an optional comment..."
+          ></textarea>
+          <div class="panel-actions">
+            <button @click="submitReview" class="submit-button">
+              Submit and Next
+            </button>
+            <button @click="setMode('view')" class="cancel-button">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div v-else class="loading-card">
       <p>Loading Q&A pair...</p>
     </div>
@@ -60,9 +119,14 @@
 
 <script>
 import axios from "axios";
+import { marked } from "marked";
+import hljs from "highlight.js";
+// NEW: Import the confetti library
+import confetti from "canvas-confetti";
 
 export default {
   name: "ReviewQa",
+  components: {},
   props: {
     user: String,
   },
@@ -70,15 +134,53 @@ export default {
     return {
       qaPairs: [],
       currentPair: null,
+      editablePair: { question: "", answer: "" },
       questionRating: 3,
       answerRating: 3,
       comment: "",
+      mode: "view", // 'view', 'edit', 'rate'
+      // NEW: Data properties for progress tracking
+      dailyProgress: 0,
+      dailyObjective: 5,
     };
   },
   created() {
+    this.configureMarked();
     this.fetchData();
+    // NEW: Fetch user progress when the component is created
+    if (this.user) {
+      this.fetchUserProgress();
+    }
+  },
+  computed: {
+    formattedQuestion() {
+      return this.currentPair?.question
+        ? marked(this.currentPair.question)
+        : "";
+    },
+    formattedAnswer() {
+      return this.currentPair?.answer ? marked(this.currentPair.answer) : "";
+    },
+    // NEW: Computed property to calculate the progress bar's width
+    progressBarWidth() {
+      if (this.dailyObjective === 0) return 0;
+      // Cap the width at 100%
+      return Math.min((this.dailyProgress / this.dailyObjective) * 100, 100);
+    },
   },
   methods: {
+    // ... (keep configureMarked, fetchData, getRandomPair, setMode, resetState, submitEditedContent, passQuestion)
+    configureMarked() {
+      marked.setOptions({
+        highlight: function (code, lang) {
+          const language = hljs.getLanguage(lang) ? lang : "plaintext";
+          return hljs.highlight(code, { language }).value;
+        },
+        langPrefix: "hljs language-",
+        gfm: true,
+        breaks: true,
+      });
+    },
     async fetchData() {
       try {
         const response = await axios.get("/qa_data.json");
@@ -100,14 +202,59 @@ export default {
           answer: "Please check back later.",
         };
       }
+      this.resetState();
     },
+    setMode(newMode) {
+      if (newMode === "edit") {
+        this.editablePair = { ...this.currentPair };
+      }
+      this.mode = newMode;
+    },
+    resetState() {
+      this.mode = "view";
+      this.questionRating = 3;
+      this.answerRating = 3;
+      this.comment = "";
+      this.editablePair = { question: "", answer: "" };
+    },
+    submitEditedContent() {
+      this.currentPair.question = this.editablePair.question;
+      this.currentPair.answer = this.editablePair.answer;
+      this.submitReview();
+    },
+    passQuestion() {
+      this.getRandomPair();
+    },
+
+    // NEW: Method to fetch the user's daily progress
+    async fetchUserProgress() {
+      try {
+        const response = await axios.get(
+          `/api/reviews/progress?user=${this.user}`
+        );
+        this.dailyProgress = response.data.daily_count;
+      } catch (error) {
+        console.error("Error fetching user progress:", error);
+      }
+    },
+
+    // NEW: Method to trigger the winning animation
+    triggerVictoryAnimation() {
+      // Use canvas-confetti for a nice effect
+      confetti({
+        particleCount: 150,
+        spread: 90,
+        origin: { y: 0.6 },
+        angle: 90,
+      });
+    },
+
     async submitReview() {
       if (!this.user) {
         alert("Please log in to submit a review.");
         return;
       }
 
-      // We send the final state of the question and answer
       const reviewData = {
         user: this.user,
         question: this.currentPair.question,
@@ -119,15 +266,16 @@ export default {
       };
 
       try {
-        // Send the data to our FastAPI backend
         await axios.post("/api/submit-review", reviewData);
         alert("Review submitted successfully!");
 
-        // Reset for the next one
-        this.getRandomPair();
-        this.questionRating = 3;
-        this.answerRating = 3;
-        this.comment = "";
+        // NEW: Update progress and check for objective completion
+        this.dailyProgress++;
+        if (this.dailyProgress === this.dailyObjective) {
+          this.triggerVictoryAnimation();
+        }
+
+        this.getRandomPair(); // Move to the next question
       } catch (error) {
         console.error("Error submitting review:", error);
         alert(
@@ -140,33 +288,72 @@ export default {
 </script>
 
 <style scoped>
+/* --- STYLES --- */
 .page-container {
   display: flex;
-  justify-content: center;
+  /* NEW: Allow vertical stacking */
+  flex-direction: column;
+  align-items: center;
   padding: 2rem;
   background-color: #f7f9fc;
   min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
 }
 
-.review-card,
-.loading-card {
+/* NEW: Styles for the Progress Bar */
+.progress-container {
   background-color: white;
   border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  padding: 1rem 1.5rem;
+  max-width: 800px;
+  width: 100%;
+  margin-bottom: 2rem;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.progress-title {
+  font-weight: 600;
+  color: #333;
+}
+
+.progress-count {
+  font-weight: bold;
+  color: #4a90e2;
+  font-size: 1.1rem;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 12px;
+  background-color: #e9ecef;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-image: linear-gradient(45deg, #4a90e2, #55d7ff);
+  border-radius: 6px;
+  transition: width 0.5s ease-in-out;
+}
+
+.review-card {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
   padding: 2rem 2.5rem;
   max-width: 800px;
   width: 100%;
-  display: flex;
-  flex-direction: column;
 }
-
-.loading-card {
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-  color: #555;
-}
-
+/* ... all your other existing styles ... */
 .qa-section {
   margin-bottom: 1.5rem;
 }
@@ -175,9 +362,48 @@ export default {
 .answer-title {
   font-size: 1.5rem;
   color: #333;
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
   border-bottom: 2px solid #eee;
   padding-bottom: 0.5rem;
+}
+
+.content-display {
+  line-height: 1.7;
+  color: #333;
+}
+.content-display :deep(p) {
+  margin-bottom: 1em;
+}
+.content-display :deep(pre) {
+  background-color: #282c34; /* Atom One Dark background */
+  color: #abb2bf;
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-x: auto;
+  font-family: "Fira Code", "Courier New", Courier, monospace;
+}
+.content-display :deep(code) {
+  font-size: 0.95em;
+}
+
+.actions-panel {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.panel-title {
+  font-size: 1.3rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: #444;
+}
+
+.text-field-label {
+  display: block;
+  font-weight: 500;
+  color: #555;
+  margin-bottom: 0.5rem;
 }
 
 .text-field,
@@ -190,71 +416,103 @@ export default {
   font-family: inherit;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
-
 .text-field:focus,
 .comment-field:focus {
   outline: none;
   border-color: #4a90e2;
   box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
 }
-
 .answer-field {
-  min-height: 250px;
-}
-
-.actions {
-  margin-top: 1rem;
+  min-height: 200px;
 }
 
 .ratings-wrapper {
   display: flex;
+  justify-content: space-around;
   gap: 2rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
 }
-
-.rating-group {
-  display: flex;
-  flex-direction: column;
-}
-
 .rating-group label {
   font-weight: 500;
   color: #555;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+  display: block;
 }
 
-.rating-group input {
-  width: 80px;
-  padding: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  text-align: center;
-  font-size: 1rem;
+.star-rating {
+  cursor: pointer;
+  font-size: 2.2rem;
+  display: inline-block;
+}
+.star-rating span {
+  transition: color 0.2s;
+  color: #d1d5db;
+}
+.star-rating span.filled {
+  color: #f59e0b;
+}
+
+.star-rating:hover span {
+  color: #facc15;
+}
+.star-rating span:hover ~ span {
+  color: #d1d5db;
 }
 
 .comment-field {
   min-height: 80px;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
-.submit-button {
-  width: 100%;
-  padding: 1rem;
-  font-size: 1.1rem;
+.view-actions,
+.panel-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.action-button,
+.submit-button,
+.cancel-button {
+  flex-grow: 1;
+  padding: 0.9rem;
+  font-size: 1rem;
   font-weight: bold;
-  color: white;
-  background-color: #4a90e2;
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.2s, transform 0.1s;
+  transition: all 0.2s;
 }
 
-.submit-button:hover {
+.submit-button,
+.action-button {
+  color: white;
+  background-color: #4a90e2;
+}
+.submit-button:hover,
+.action-button:hover {
   background-color: #357abd;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
-
-.submit-button:active {
-  transform: scale(0.99);
+.action-button.secondary {
+  background-color: #6c757d;
+}
+.action-button.secondary:hover {
+  background-color: #5a6268;
+}
+.action-button.pass-button {
+  background-color: #ef6c00;
+}
+.action-button.pass-button:hover {
+  background-color: #e65100;
+}
+.cancel-button {
+  background-color: #f1f1f1;
+  color: #555;
+  border: 1px solid #ddd;
+}
+.cancel-button:hover {
+  background-color: #e9e9e9;
 }
 </style>

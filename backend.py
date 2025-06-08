@@ -6,6 +6,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from datetime import date, datetime
 
 # --- Updated Pydantic Model for Data Validation ---
 # We now match the detailed structure from the Vue app
@@ -37,7 +38,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-REVIEWS_FILE = "reviews.json"
+REVIEWS_FILE = "data/reviews.json"
 
 # --- API Endpoints ---
 
@@ -78,6 +79,40 @@ async def get_reviews():
             return json.load(f)
         except json.JSONDecodeError:
             return []
+        
+
+
+@app.get("/api/reviews/progress")
+async def get_user_progress(user: str):
+    """
+    Calculates and returns the number of reviews submitted by a user for the current day.
+    """
+    if not os.path.exists(REVIEWS_FILE):
+        return {"daily_count": 0}
+
+    reviews = []
+    with open(REVIEWS_FILE, "r") as f:
+        try:
+            reviews = json.load(f)
+        except json.JSONDecodeError:
+            return {"daily_count": 0}
+
+    today = date.today()
+    daily_count = 0
+    for review in reviews:
+        # Check if the review belongs to the user and was created today
+        if review.get("user") == user:
+            try:
+                # Timestamps are in ISO format e.g., "2025-06-08T10:45:35.123Z"
+                review_date = datetime.fromisoformat(review["timestamp"].replace("Z", "+00:00")).date()
+                if review_date == today:
+                    daily_count += 1
+            except (ValueError, KeyError):
+                # Ignore reviews with malformed timestamps or missing keys
+                continue
+                
+    return {"daily_count": daily_count}
+
 
 # This part is just to run the server directly with `python main.py` if you want
 if __name__ == "__main__":

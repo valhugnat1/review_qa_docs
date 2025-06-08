@@ -2,6 +2,8 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import router from "./router";
 import vue3GoogleLogin from "vue3-google-login";
+// e.g., in your main.js
+import "highlight.js/styles/atom-one-dark.css"; // Using a different theme for this example
 
 const app = createApp(App);
 
